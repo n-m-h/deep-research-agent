@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>深度研究助手</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container { max-width: 680px; width: 100%; }
+    
+    .hero { 
+      text-align: center; 
+      margin-bottom: 40px; 
+      color: white;
+      animation: fadeInDown 0.8s ease-out;
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero h1 { 
+      font-size: 42px; 
+      font-weight: 700; 
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #00d9ff 0%, #a855f7 50%, #ff6b6b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p { 
+      font-size: 16px; 
+      opacity: 0.85;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+    
+    .search-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+      animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .input-group { display: flex; gap: 12px; margin-bottom: 28px; }
+    .input-group input {
+      flex: 1;
+      padding: 18px 24px;
+      font-size: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.06);
+      color: white;
+      transition: all 0.3s ease;
+    }
+    .input-group input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .input-group input:focus { 
+      border-color: rgba(0, 217, 255, 0.5); 
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 20px rgba(0, 217, 255, 0.15);
+    }
+    .input-group button {
+      padding: 18px 36px;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(135deg, #00d9ff 0%, #a855f7 100%);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+    .input-group button:hover { 
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(0, 217, 255, 0.35);
+    }
+    .input-group button:disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+      transform: none;
+    }
+    
+    .features { 
+      display: flex; 
+      justify-content: center; 
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .feature { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      color: rgba(255, 255, 255, 0.6); 
+      font-size: 13px;
+      font-weight: 400;
+    }
+    .feature-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .feature:nth-child(1) .feature-icon { background: rgba(0, 217, 255, 0.15); }
+    .feature:nth-child(2) .feature-icon { background: rgba(168, 85, 247, 0.15); }
+    .feature:nth-child(3) .feature-icon { background: rgba(255, 107, 107, 0.15); }
+    
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .modal-container {
+      width: 95vw;
+      max-width: 900px;
+      height: 85vh;
+      background: #0d1117;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+      animation: slideIn 0.4s ease;
+    }
+    @keyframes slideIn { 
+      from { opacity: 0; transform: scale(0.95) translateY(20px); } 
+      to { opacity: 1; transform: scale(1) translateY(0); } 
+    }
+    
+    .modal-header {
+      padding: 20px 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .modal-header h2 { 
+      font-size: 18px; 
+      font-weight: 500;
+      color: white;
+      max-width: 70%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .close-button {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      cursor: pointer;
+      padding: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+      transition: all 0.2s;
+      font-size: 16px;
+    }
+    .close-button:hover { 
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff6b6b;
+    }
+    
+    .progress-section {
+      padding: 16px 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 217, 255, 0.03);
+    }
+    .progress-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00d9ff, #a855f7);
+      border-radius: 3px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+    }
+    .progress-text { 
+      margin-top: 12px; 
+      font-size: 13px; 
+      color: rgba(255, 255, 255, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00d9ff;
+      animation: pulse 1.5s ease infinite;
+    }
+    @keyframes pulse { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0.4; } 
+    }
+    
+    .content-section {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+      background: #0d1117;
+    }
+    .content-section::-webkit-scrollbar { width: 8px; }
+    .content-section::-webkit-scrollbar-track { background: transparent; }
+    .content-section::-webkit-scrollbar-thumb { 
+      background: rgba(255, 255, 255, 0.1); 
+      border-radius: 4px;
+    }
+    
+    .loading { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      height: 100%;
+      gap: 20px;
+    }
+    .spinner-container {
+      position: relative;
+      width: 60px;
+      height: 60px;
+    }
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(0, 217, 255, 0.15);
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-ring {
+      position: absolute;
+      top: 8px; left: 8px;
+      width: 44px;
+      height: 44px;
+      border: 2px solid transparent;
+      border-top-color: #a855f7;
+      border-radius: 50%;
+      animation: spin 1.5s linear infinite reverse;
+    }
+    .loading p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+    }
+    
+    .markdown-content { 
+      font-size: 14px;
+      line-height: 1.8;
+      color: rgba(255, 255, 255, 0.75);
+      font-weight: 300;
+    }
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+      color: white;
+      margin: 24px 0 12px;
+      font-weight: 600;
+    }
+    .markdown-content h1 { font-size: 22px; }
+    .markdown-content h2 { font-size: 18px; }
+    .markdown-content h3 { font-size: 15px; }
+    .markdown-content p { margin: 10px 0; }
+    .markdown-content code {
+      background: rgba(0, 217, 255, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      color: #00d9ff;
+    }
+    .markdown-content ul, .markdown-content ol {
+      margin: 10px 0;
+      padding-left: 24px;
+    }
+    .markdown-content li { margin: 6px 0; }
+    .markdown-content strong { color: #a855f7; font-weight: 500; }
+    .markdown-content hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin: 24px 0;
+    }
+    
+    .modal-footer {
+      padding: 14px 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-footer .status {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-footer .status.active {
+      color: #00d9ff;
+    }
+    .modal-footer .status.completed {
+      color: #10b981;
+    }
+    .modal-footer .time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .hidden { display: none !important; }
+    
+    /* Results highlight */
+    .result-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .result-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(0, 217, 255, 0.2);
+    }
+    .result-title {
+      color: #00d9ff;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .result-snippet {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .result-source {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 3px 10px;
+      background: rgba(168, 85, 247, 0.15);
+      color: #a855f7;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>🔍 深度研究助手</h1>
+      <p>让 AI 为你探索知识的边界</p>
+    </div>
+    <div class="search-card">
+      <div class="input-group">
+        <input id="topicInput" type="text" placeholder="输入研究主题，例如：DeepSeek 技术架构...">
+        <button id="startBtn" onclick="startResearch()">开始研究</button>
+      </div>
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🧠</span>
+          <span>智能规划</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">🔗</span>
+          <span>多源搜索</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📊</span>
+          <span>深度分析</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modalTitle">研究主题</h2>
+        <button class="close-button" onclick="closeModal()">✕</button>
+      </div>
+      <div class="progress-section">
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="progress-text">
+          <span class="status-dot"></span>
+          <span id="progressText">准备中...</span>
+        </div>
+      </div>
+      <div id="contentSection" class="content-section">
+        <div id="loading" class="loading hidden">
+          <div class="spinner-container">
+            <div class="spinner"></div>
+            <div class="spinner-ring"></div>
+          </div>
+          <p>AI 正在深度研究中...</p>
+        </div>
+        <div id="markdownContent" class="markdown-content hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <span id="statusText" class="status">等待开始</span>
+        <span id="timeText" class="time"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let eventSource = null;
+    const API_URL = 'http://localhost:8000';
+    let startTime = null;
+
+    function startResearch() {
+      const topic = document.getElementById('topicInput').value.trim();
+      if (!topic) return;
+
+      startTime = Date.now();
+      document.getElementById('modalTitle').textContent = topic;
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('markdownContent').classList.add('hidden');
+      document.getElementById('markdownContent').innerHTML = '';
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressText').textContent = '正在连接研究引擎...';
+      document.getElementById('statusText').textContent = '初始化中';
+      document.getElementById('statusText').className = 'status active';
+      document.getElementById('timeText').textContent = '';
+      document.getElementById('startBtn').disabled = true;
+
+      fetch(`${API_URL}/research/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic })
+      }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            const text = decoder.decode(value);
+            const lines = text.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.substring(6));
+                  handleEvent(data);
+                } catch (e) {}
+              }
+            }
+            read();
+          });
+        }
+        read();
+      }).catch(err => {
+        console.error(err);
+        alert('连接失败，请检查后端服务是否运行');
+        closeModal();
+      });
+    }
+
+    function handleEvent(data) {
+      const statusEl = document.getElementById('statusText');
+      
+      switch (data.type) {
+        case 'status':
+          document.getElementById('progressText').textContent = data.message || '';
+          if (data.percentage) {
+            document.getElementById('progressFill').style.width = data.percentage + '%';
+          }
+          statusEl.textContent = '研究中';
+          statusEl.className = 'status active';
+          break;
+          
+        case 'task_summary':
+          if (data.data?.summary) {
+            const content = document.getElementById('markdownContent');
+            content.classList.remove('hidden');
+            document.getElementById('loading').classList.add('hidden');
+            
+            const taskHtml = `
+              <h2>📋 任务 ${data.task_id || ''}</h2>
+              <p>${data.data.summary}</p>
+              <hr>
+            `;
+            content.innerHTML += taskHtml;
+            content.scrollTop = content.scrollHeight;
+            
+            statusEl.textContent = '整理中';
+          }
+          break;
+          
+        case 'report':
+          if (data.data?.report) {
+            const content = document.getElementById('markdownContent');
+            content.classList.remove('hidden');
+            document.getElementById('loading').classList.add('hidden');
+            content.innerHTML = parseMarkdown(data.data.report);
+          }
+          if (data.percentage) {
+            document.getElementById('progressFill').style.width = data.percentage + '%';
+          }
+          if (data.stage === 'completed') {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            document.getElementById('timeText').textContent = `耗时 ${elapsed}s`;
+            document.getElementById('progressText').textContent = '研究完成！';
+            statusEl.textContent = '已完成';
+            statusEl.className = 'status completed';
+            document.getElementById('startBtn').disabled = false;
+          } else {
+            statusEl.textContent = '生成报告';
+          }
+          break;
+          
+        case 'completed':
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          document.getElementById('timeText').textContent = `耗时 ${elapsed}s`;
+          document.getElementById('progressFill').style.width = '100%';
+          document.getElementById('progressText').textContent = '研究完成！';
+          statusEl.textContent = '已完成';
+          statusEl.className = 'status completed';
+          document.getElementById('startBtn').disabled = false;
+          break;
+          
+        case 'error':
+          alert('研究出错: ' + data.message);
+          statusEl.textContent = '出错';
+          statusEl.className = 'status';
+          closeModal();
+          break;
+      }
+    }
+
+    function parseMarkdown(text) {
+      if (!text) return '';
+      
+      let html = text
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(.+)$/gm, (match) => {
+          if (match.startsWith('<')) return match;
+          return match ? `<p>${match}</p>` : '';
+        });
+      
+      return html;
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('markdownContent').innerHTML = '';
+      document.getElementById('progressFill').style.width = '0%';
+    }
+
+    document.getElementById('topicInput').addEventListener('keyup', e => {
+      if (e.key === 'Enter') startResearch();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+</body>
+</html>
