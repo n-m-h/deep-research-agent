@@ -102,7 +102,7 @@ class DeepResearchAgent:
             state = SummaryState(research_topic=topic)
 
             yield self._format_sse_event("status", "正在规划研究任务...", percentage=10)
-            # 任务规划
+            # 1、调用规划agent、任务规划
             todo_list = self.planner.plan_todo_list(state)
             
             yield self._format_sse_event(
@@ -114,7 +114,7 @@ class DeepResearchAgent:
 
             task_summaries = []
             total_tasks = len(todo_list)
-            # 逐一执行规划的子任务
+            # 2、逐一执行规划的子任务
             for idx, task in enumerate(todo_list, start=1):
                 base_percentage = 15
                 progress_per_task = 70
@@ -133,7 +133,7 @@ class DeepResearchAgent:
                     task_id=task.id,
                     data={"task": task.model_dump()}
                 )
-                # 搜索
+                # 2.1 调用搜索agent搜索信息
                 search_results = self.search_service.search(task.query)
                 # 处理无结果的情况
                 if not search_results:
@@ -151,7 +151,7 @@ class DeepResearchAgent:
                     f"正在总结搜索结果...",
                     percentage=task_percentage + 5
                 )
-                # 总结
+                # 2.2 调用总结agent总结任务
                 summary, source_urls = self.summarizer.summarize_task(task, search_results)
                 task.summary = summary
                 task.source_urls = source_urls
@@ -177,7 +177,7 @@ class DeepResearchAgent:
                 stage="reporting"
             )
             
-            # 生成完整报告
+            # 3、调用生成报告agent，生成完整报告
             report = self.reporter.generate_report(topic, task_summaries)
 
             yield self._format_sse_event(

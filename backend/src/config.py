@@ -64,7 +64,12 @@ class Configuration(BaseModel):
         self._load_backup_llms()
 
     def _load_backup_llms(self):
-        backup_llms = []
+
+        """
+        从环境变量中加载备用的大语言模型(LLM)配置
+        该方法会检查最多10个可能的LLM配置，每个配置包含提供商、API密钥、模型ID和基础URL
+        """
+        backup_llms = []  # 初始化备用LLM配置列表
         for i in range(10):
             provider = os.getenv(f"LLM_PROVIDER_{i}")
             api_key = os.getenv(f"LLM_API_KEY_{i}")
