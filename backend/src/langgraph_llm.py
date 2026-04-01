@@ -42,31 +42,35 @@ class HelloAgentsChatModel(BaseChatModel):
 
     @property
     def _llm_type(self) -> str:
+        """返回LLM类型的字符串表示
+        Returns:
+            str: 返回"hello_agents"，表示这是一个hello_agents类型的LLM实现
+        """
         return "hello_agents"
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Any = None,
-        **kwargs: Any,
-    ) -> ChatResult:
-        openai_msgs = _to_openai_messages(messages)
-        response = self._llm.invoke(openai_msgs, **kwargs)
-        return ChatResult(
-            generations=[ChatGeneration(message=AIMessage(content=response))]
+        messages: List[BaseMessage],  # 输入的消息列表，包含对话历史
+        stop: Optional[List[str]] = None,  # 可选的停止词列表，用于控制生成停止的条件
+        run_manager: Any = None,  # 可选的运行管理器，用于跟踪和监控生成过程
+        **kwargs: Any,  # 其他额外的关键字参数
+    ) -> ChatResult:  # 返回聊天结果对象
+        openai_msgs = _to_openai_messages(messages)  # 将输入的消息转换为OpenAI API兼容的消息格式
+        response = self._llm.invoke(openai_msgs, **kwargs)  # 调用底层语言模型生成回复
+        return ChatResult(  # 构建并返回聊天结果
+            generations=[ChatGeneration(message=AIMessage(content=response))]  # 将模型响应封装为聊天生成结果
         )
 
     def _stream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Any = None,
-        **kwargs: Any,
-    ) -> Iterator[ChatGeneration]:
-        openai_msgs = _to_openai_messages(messages)
-        for chunk in self._llm.think(openai_msgs, **kwargs):
-            yield ChatGeneration(message=AIMessage(content=chunk))
+        messages: List[BaseMessage],  # 消息列表，包含对话历史
+        stop: Optional[List[str]] = None,  # 可选的停止词列表
+        run_manager: Any = None,  # 运行管理器，用于跟踪和控制运行过程
+        **kwargs: Any,  # 其他可选参数
+    ) -> Iterator[ChatGeneration]:  # 返回一个聊天生成结果的迭代器
+        openai_msgs = _to_openai_messages(messages)  # 将消息转换为OpenAI格式
+        for chunk in self._llm.think(openai_msgs, **kwargs):  # 遍历LLM的思考过程输出
+            yield ChatGeneration(message=AIMessage(content=chunk))  # 生成并返回一个聊天生成结果
 
 
 def create_chat_model(config) -> HelloAgentsChatModel:

@@ -50,6 +50,7 @@ def build_research_graph(llm):
 
     # Add nodes
     builder.add_node("decompose", decompose_node)
+    builder.add_node("fan_out", lambda state: state)
     builder.add_node("search_sub_task", search_sub_task)
     builder.add_node("summarize", summarize_node)
     builder.add_node("generate_report", report_node)
