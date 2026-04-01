@@ -2,6 +2,8 @@
 
 基于 [HelloAgents](https://github.com/datawhalechina/Hello-Agents) 框架构建的自动化深度研究智能体系统，能够自主规划、执行和总结研究任务，生成结构化的研究报告。
 
+> **v2.0**: 新增 LangGraph 架构支持，提供并行搜索 + 质量审查能力。通过 `USE_LANGGRAPH` 环境变量可在经典版和 LangGraph 版之间切换。
+
 ## ✨ 特性
 
 - **TODO 驱动的研究范式**：将复杂主题分解为可执行的子任务
@@ -9,7 +11,8 @@
 - **多源搜索集成**：支持 Tavily、DuckDuckGo 等搜索引擎，带超时保护
 - **Vue 3 现代前端**：基于 Vue 3 + TypeScript + Vite 构建的响应式界面
 - **SSE 流式输出**：实时展示研究进度和任务状态
-- **批处理报告生成**：大任务量时自动分批处理，提高稳定性
+- **并行搜索 (LangGraph)**：子任务级并行搜索，大幅提升研究速度
+- **质量审查 (LangGraph)**：自动审查报告质量，支持最多 2 轮改进循环
 - **结构化报告**：生成 Markdown 格式的研究报告，包含来源引用
 
 ## 🏗 项目结构
@@ -19,12 +22,19 @@ helloagents-deepresearch/
 ├── backend/                      # 后端服务
 │   ├── src/
 │   │   ├── main.py              # FastAPI 入口 + SSE 接口
-│   │   ├── agent.py             # DeepResearchAgent 核心协调器
+│   │   ├── agent.py             # DeepResearchAgent (原版)
+│   │   ├── agent_langgraph.py   # LangGraphAgent (新版)
 │   │   ├── config.py            # 多 LLM 配置管理
 │   │   ├── models.py            # Pydantic 数据模型
 │   │   ├── prompts.py           # Agent Prompt 模板
+│   │   ├── langgraph_llm.py    # LangChain LLM 包装器
 │   │   ├── tool_aware_agent.py  # ToolAwareSimpleAgent 扩展
-│   │   └── services/            # 服务层
+│   │   ├── graph/               # LangGraph 工作流
+│   │   │   ├── __init__.py
+│   │   │   ├── state.py         # ResearchState 定义
+│   │   │   ├── nodes.py         # 图节点实现
+│   │   │   └── builder.py       # StateGraph 构建器
+│   │   └── services/            # 服务层 (原版)
 │   │       ├── planner.py       # 任务规划服务
 │   │       ├── summarizer.py    # 任务总结服务
 │   │       ├── reporter.py      # 报告生成服务（批处理）
@@ -106,8 +116,11 @@ source venv/bin/activate  # Linux/Mac
 # 安装依赖
 pip install -r requirements.txt
 
-# 启动服务
+# 启动服务 (默认使用原版)
 python src/main.py
+
+# 使用 LangGraph 版本 (并行搜索 + 质量审查)
+USE_LANGGRAPH=true python src/main.py
 ```
 
 #### 3. 启动前端
@@ -200,7 +213,19 @@ curl -X POST http://localhost:8000/research/stream \
 
 ## 🧠 核心架构
 
-### 1. TODO 驱动的研究流程
+### 双版本架构
+
+项目提供两套实现，通过 `USE_LANGGRAPH` 环境变量切换：
+
+| 特性 | 原版 (Classic) | LangGraph 版 |
+|------|----------------|--------------|
+| 任务执行 | 串行执行 | 并行执行 (Send API) |
+| 质量审查 | 无 | reflect → revise 循环 (最多2轮) |
+| 状态管理 | SummaryState 分散传递 | 统一 ResearchState |
+| 流式输出 | 手动 SSE 格式化 | astream_events 原生支持 |
+| 容错 | 手动重试 | recursion_limit + 条件边 |
+
+### 1. 原版研究流程 (Classic)
 
 ```
 用户输入 → 规划阶段 → 执行阶段 × N → 报告阶段 → 最终报告
@@ -208,13 +233,31 @@ curl -X POST http://localhost:8000/research/stream \
            子任务列表   搜索+总结      Markdown报告
 ```
 
-### 2. 多 Agent 协作
+### 2. LangGraph 研究流程
+
+```
+query → decompose → fan_out ──┬─→ search_1 ─┐
+                              ├─→ search_2 ─┤  (并行)
+                              ├─→ search_3 ─┤
+                              └─→ ... ──────┘
+                                    ↓
+                               summarize → generate_report
+                                              ↓
+                                    ┌─── reflect ────┐
+                                    │                │
+                         APPROVED   ▼         ▼ NEEDS_REVISION
+                      ─────────▶ finalize    revise ──▶ (loop)
+```
+
+### 3. 多 Agent 协作
 
 | Agent | 职责 | 输出 |
 |-------|------|------|
 | **TODO Planner** | 将主题分解为 3-5 个子任务 | JSON 任务列表 |
 | **Task Summarizer** | 总结搜索结果，提取关键信息 | Markdown 总结 |
 | **Report Writer** | 整合所有总结，生成最终报告 | 结构化报告 |
+| **Report Reflector** (LangGraph) | 审查报告质量，提出改进意见 | 审查报告 |
+| **Report Reviser** (LangGraph) | 根据审查意见修改报告 | 改进后报告 |
 
 ### 3. SSE 事件类型
 
@@ -235,6 +278,18 @@ curl -X POST http://localhost:8000/research/stream \
 1. 将 N 个任务分成若干批（每批 2 个）
 2. 并行生成各批的部分报告
 3. 最后合并所有部分报告为完整报告
+
+### 5. SSE 事件类型
+
+| 事件类型 | 说明 |
+|---------|------|
+| `status` | 状态消息（进度、阶段） |
+| `tasks` | 规划的子任务列表 |
+| `task_progress` | 任务执行进度 |
+| `task_summary` | 单个任务总结完成 |
+| `report` | 最终报告（含 `stage: "completed"`） |
+| `error` | 错误信息 |
+| `completed` | 完成通知 |
 
 ## 🔧 扩展开发
 
