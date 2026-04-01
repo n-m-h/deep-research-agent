@@ -69,8 +69,30 @@ class HelloAgentsChatModel(BaseChatModel):
         **kwargs: Any,  # 其他可选参数
     ) -> Iterator[ChatGeneration]:  # 返回一个聊天生成结果的迭代器
         openai_msgs = _to_openai_messages(messages)  # 将消息转换为OpenAI格式
-        for chunk in self._llm.think(openai_msgs, **kwargs):  # 遍历LLM的思考过程输出
-            yield ChatGeneration(message=AIMessage(content=chunk))  # 生成并返回一个聊天生成结果
+        for chunk in self._stream_with_fallback(openai_msgs, **kwargs):
+            yield ChatGeneration(message=AIMessage(content=chunk))
+
+    def _stream_with_fallback(self, messages: List[dict], **kwargs) -> Iterator[str]:
+        """Stream with manual fallback for MultiProviderLLM (think() has no built-in fallback)"""
+        from hello_agents.core.llm import MultiProviderLLM
+
+        if isinstance(self._llm, MultiProviderLLM):
+            tried = 0
+            max_tries = len(self._llm.all_llms)
+            while tried < max_tries:
+                llm, name = self._llm.all_llms[self._llm.current_index]
+                try:
+                    for chunk in llm.think(messages, **kwargs):
+                        yield chunk
+                    return
+                except Exception as e:
+                    logger.warning(f"Stream LLM [{name}] failed: {e}, switching...")
+                    self._llm._switch_to_next()
+                    tried += 1
+            raise LLMError("所有 LLM 提供商流式调用都失败")
+        else:
+            for chunk in self._llm.think(messages, **kwargs):
+                yield chunk
 
 
 def create_chat_model(config) -> HelloAgentsChatModel:
