@@ -22,13 +22,24 @@ import asyncio
 from hello_agents import HelloAgentsLLM
 
 from src.config import config
-from src.agent import DeepResearchAgent
 from src.models import ResearchRequest
+
+# 版本切换: 通过环境变量 USE_LANGGRAPH 控制
+# USE_LANGGRAPH=true  -> 使用 LangGraph 版本 (并行搜索 + 质量审查)
+# USE_LANGGRAPH=false -> 使用原版 (串行执行)
+USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "false").lower() == "true"
+
+if USE_LANGGRAPH:
+    from src.agent_langgraph import LangGraphAgent as ResearchAgent
+    AGENT_VERSION = "LangGraph"
+else:
+    from src.agent import DeepResearchAgent as ResearchAgent
+    AGENT_VERSION = "Classic"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="深度研究助手 API", version="1.0.0")
+app = FastAPI(title="深度研究助手 API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,7 +52,12 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "深度研究助手 API", "version": "1.0.0"}
+    return {
+        "message": f"深度研究助手 API ({AGENT_VERSION})",
+        "version": "2.0.0",
+        "agent": AGENT_VERSION,
+        "langgraph_enabled": USE_LANGGRAPH,
+    }
 
 
 @app.get("/health")
@@ -58,13 +74,13 @@ async def research_stream(request: ResearchRequest):
     async def generate():
         """
         异步生成研究结果的生成器函数
-        通过DeepResearchAgent进行异步研究，并通过Server-Sent Events(SSE)流式返回结果
+        通过ResearchAgent进行异步研究，并通过Server-Sent Events(SSE)流式返回结果
         """
         try:
             # 记录开始研究的日志信息
-            logger.info(f"开始研究: {request.topic}")
-            # 创建深度研究代理实例
-            agent = DeepResearchAgent()
+            logger.info(f"开始研究 [{AGENT_VERSION}]: {request.topic}")
+            # 创建研究代理实例
+            agent = ResearchAgent()
             
             # 异步迭代研究代理的研究结果
             async for event in agent.research(request.topic):
@@ -96,9 +112,9 @@ async def research_stream(request: ResearchRequest):
 async def research(request: ResearchRequest):
     """同步研究接口（返回完整报告）"""
     try:
-        agent = DeepResearchAgent()
+        agent = ResearchAgent()
         report = agent.run(request.topic)
-        return {"status": "success", "report": report}
+        return {"status": "success", "report": report, "agent": AGENT_VERSION}
     except Exception as e:
         logger.error(f"研究出错: {e}")
         return {"status": "error", "message": str(e)}
@@ -106,6 +122,7 @@ async def research(request: ResearchRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"🚀 启动深度研究助手 API...")
+    print(f"🚀 启动深度研究助手 API ({AGENT_VERSION})...")
     print(f"📍 地址: http://{config.host}:{config.port}")
+    print(f"🔧 USE_LANGGRAPH={USE_LANGGRAPH}")
     uvicorn.run(app, host=config.host, port=config.port)
