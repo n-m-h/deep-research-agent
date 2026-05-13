@@ -10,6 +10,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from .state import ResearchState, SubTask
 from ..services.search import SearchService
+from ..services.rag import RAGService
 from ..prompts import (
     todo_planner_instructions,
     task_summarizer_instructions,
@@ -19,8 +20,9 @@ from ..prompts import (
 logger = logging.getLogger(__name__)
 
 search_service = SearchService()
+rag_service = RAGService()
 
-
+# 分解研究主题
 def decompose_topic(state: ResearchState, llm) -> dict:
     """Node: Decompose research query into sub-tasks"""
     from datetime import datetime
@@ -54,9 +56,9 @@ def decompose_topic(state: ResearchState, llm) -> dict:
     logger.info(f"Decomposed query into {len(sub_tasks)} sub-tasks")
     return {"sub_tasks": sub_tasks, "current_task_index": 0}
 
-
+# 搜索单个子任务
 def search_sub_task(state: ResearchState) -> dict:
-    """Node: Search for a single sub-task (called via Send API for parallelism)"""
+    """Node: Search for a single sub-task (web search + optional RAG)"""
     idx = state["current_task_index"]
     sub_tasks = state["sub_tasks"]
 
@@ -66,20 +68,49 @@ def search_sub_task(state: ResearchState) -> dict:
     task = sub_tasks[idx]
     logger.info(f"Searching for task {idx + 1}/{len(sub_tasks)}: {task['title']}")
 
-    results = search_service.search(task["query"])
-    
-    # Create updated copy of the specific task
-    updated_task = {**task}
-    updated_task["search_results"] = results or []
-    updated_task["source_urls"] = [r.get("url", "") for r in (results or [])]
+    # 1. Web search
+    web_results = search_service.search(task["query"])
+    web_results = web_results or []
 
-    # Build updated sub_tasks list
+    # 2. RAG retrieval (if enabled and documents exist)
+    rag_results = []
+    if state.get("use_rag", True) and rag_service.has_documents:
+        try:
+            rag_chunks = rag_service.search(task["query"], top_k=3)
+            rag_results = [
+                {
+                    "title": f"[个人文档] {chunk['source_doc']}",
+                    "url": chunk.get("section_path", ""),
+                    "snippet": chunk.get("snippet", chunk["text"])[:300],
+                    "text": chunk["text"],
+                    "source": "personal_doc",
+                    "source_doc": chunk["source_doc"],
+                    "relevance_score": chunk["relevance_score"],
+                }
+                for chunk in rag_chunks
+            ]
+            logger.info(f"RAG found {len(rag_results)} relevant chunks for task {idx + 1}")
+        except Exception as e:
+            logger.error(f"RAG search failed for task {idx + 1}: {e}")
+
+    # 3. Merge results (web + personal docs)
+    all_results = web_results + rag_results
+
+    updated_task = {**task}
+    updated_task["search_results"] = all_results or []
+    updated_task["source_urls"] = [
+        r.get("url", "") for r in all_results
+        if r.get("source") != "personal_doc"
+    ] + [
+        f"[个人文档] {r['source_doc']}" for r in rag_results
+    ]
+
     updated_sub_tasks = list(sub_tasks)
     updated_sub_tasks[idx] = updated_task
 
     return {"sub_tasks": updated_sub_tasks}
 
-
+# 总结所有子任务的搜索结果
 def summarize_tasks(state: ResearchState, llm) -> dict:
     """Node: Summarize all sub-task search results"""
     sub_tasks = list(state["sub_tasks"])
@@ -108,7 +139,7 @@ def summarize_tasks(state: ResearchState, llm) -> dict:
 
     return {"sub_tasks": sub_tasks}
 
-
+# 生成研究报告
 def generate_report(state: ResearchState, llm) -> dict:
     """Node: Generate the research report"""
     sub_tasks = state["sub_tasks"]
@@ -128,7 +159,7 @@ def generate_report(state: ResearchState, llm) -> dict:
     logger.info("Report generation completed")
     return {"draft_report": report}
 
-
+# 反思报告质量
 def reflect_report(state: ResearchState, llm) -> dict:
     """Node: Review and critique the draft report"""
     draft = state["draft_report"]
@@ -164,7 +195,7 @@ SUGGESTIONS: [具体改进建议]
     logger.info(f"Reflection result: {'NEEDS_REVISION' if needs_revision else 'APPROVED'}")
     return {"critique": critique}
 
-
+# 修改报告
 def revise_report(state: ResearchState, llm) -> dict:
     """Node: Revise the report based on critique"""
     draft = state["draft_report"]
@@ -194,12 +225,12 @@ def revise_report(state: ResearchState, llm) -> dict:
     logger.info(f"Report revised (iteration {iterations})")
     return {"draft_report": revised, "iterations": iterations}
 
-
+# 完成报告
 def finalize_report(state: ResearchState) -> dict:
     """Node: Finalize the report"""
     return {"final_report": state["draft_report"], "status": "completed"}
 
-
+# 路由函数，根据当前状态决定下一步操作
 def should_continue(state: ResearchState) -> str:
     """Router: Decide whether to continue revising or finalize"""
     critique = state.get("critique", "")
@@ -211,7 +242,7 @@ def should_continue(state: ResearchState) -> str:
         return "finalize"
     return "revise"
 
-
+# 路由函数，扇出并行搜索任务
 def fan_out_search(state: ResearchState) -> list:
     """Router: Fan out parallel search tasks using Send API"""
     from langgraph.types import Send
@@ -246,7 +277,7 @@ def _extract_tasks(response: str) -> List[dict]:
 
     raise ValueError(f"无法从响应中提取JSON: {response[:300]}")
 
-
+# 格式化搜索结果以供总结使用
 def _format_sources(search_results: List[dict]) -> str:
     """Format search results for prompt"""
     formatted = []
@@ -258,19 +289,26 @@ def _format_sources(search_results: List[dict]) -> str:
         )
     return "\n".join(formatted)
 
-
+# 格式化任务总结以供报告生成使用
 def _format_summaries(sub_tasks: List[SubTask]) -> str:
     """Format task summaries for report generation"""
     formatted = []
     for idx, task in enumerate(sub_tasks, start=1):
+        web_urls = [url for url in task.get("source_urls", [])
+                    if not url.startswith("[个人文档]")]
+        doc_refs = [url for url in task.get("source_urls", [])
+                    if url.startswith("[个人文档]")]
+
         formatted.append(
             f"## 任务{idx}：{task['title']}\n\n"
             f"**意图**：{task['intent']}\n\n"
             f"{task['summary']}\n\n"
             f"**来源**：\n"
         )
-        for url in task.get("source_urls", []):
+        for url in web_urls:
             if url:
-                formatted.append(f"- {url}\n")
+                formatted.append(f"- 🌐 {url}\n")
+        for ref in doc_refs:
+            formatted.append(f"- 📄 {ref}\n")
         formatted.append("\n")
     return "".join(formatted)

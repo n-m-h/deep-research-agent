@@ -17,6 +17,13 @@ interface ResearchEvent {
   stage?: string
 }
 
+interface DocumentInfo {
+  doc_id: string
+  filename: string
+  chunk_count: number
+  upload_time: string
+}
+
 export function useResearch() {
   const isLoading = ref(false)
   const isOpen = ref(false)
@@ -27,10 +34,60 @@ export function useResearch() {
   const markdownContent = ref('')
   const error = ref<string | null>(null)
   const tasks = ref<Task[]>([])
+  const useRag = ref(true)
+
+  const documents = ref<DocumentInfo[]>([])
+  const isUploading = ref(false)
+  const uploadError = ref<string | null>(null)
 
   const renderedMarkdown = computed(() => {
     return markdownContent.value
   })
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/documents')
+      const data = await response.json()
+      documents.value = data.documents || []
+    } catch (e) {
+      console.error('获取文档列表失败:', e)
+    }
+  }
+
+  const uploadDocument = async (file: File) => {
+    isUploading.value = true
+    uploadError.value = null
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch('http://localhost:8000/documents/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || '上传失败')
+      }
+      await fetchDocuments()
+      return true
+    } catch (e: any) {
+      uploadError.value = e.message
+      return false
+    } finally {
+      isUploading.value = false
+    }
+  }
+
+  const deleteDocument = async (docId: string) => {
+    try {
+      await fetch(`http://localhost:8000/documents/${docId}`, {
+        method: 'DELETE',
+      })
+      await fetchDocuments()
+    } catch (e) {
+      console.error('删除文档失败:', e)
+    }
+  }
 
   const startResearch = async (topic: string) => {
     researchTopic.value = topic
@@ -48,7 +105,7 @@ export function useResearch() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic, use_rag: useRag.value }),
       })
 
       if (!response.ok) {
@@ -186,7 +243,14 @@ export function useResearch() {
     renderedMarkdown,
     error,
     tasks,
+    useRag,
+    documents,
+    isUploading,
+    uploadError,
     startResearch,
+    fetchDocuments,
+    uploadDocument,
+    deleteDocument,
     close,
   }
 }

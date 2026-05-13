@@ -1,0 +1,66 @@
+{
+  "description": "RAG 检索评估测试集 - 用于评估不同分块/检索策略的准确率",
+  "version": "1.0",
+  "queries": [
+    {
+      "id": "q001",
+      "query": "AI产品经理的职责是什么",
+      "relevant_topics": ["产品经理职责", "AI产品管理"],
+      "ground_truth": "AI产品经理负责AI产品的需求分析、产品规划、项目管理、跨团队协作等工作，需要同时理解技术能力和市场需求。"
+    },
+    {
+      "id": "q002",
+      "query": "需求文档PRD怎么写",
+      "relevant_topics": ["PRD文档", "需求文档"],
+      "ground_truth": "PRD(Product Requirements Document)是产品需求文档，包含背景、目标、功能需求、非功能需求、交互设计等内容。"
+    },
+    {
+      "id": "q003",
+      "query": "数据分析方法有哪些",
+      "relevant_topics": ["数据分析", "分析方法"],
+      "ground_truth": "常见数据分析方法包括描述性分析、诊断性分析、预测性分析和规范性分析，以及A/B测试、回归分析、聚类分析等具体技术。"
+    },
+    {
+      "id": "q004",
+      "query": "什么是机器学习",
+      "relevant_topics": ["机器学习", "AI基础"],
+      "ground_truth": "机器学习是人工智能的一个分支，通过算法让计算机从数据中学习规律，无需显式编程。包括监督学习、无监督学习和强化学习。"
+    },
+    {
+      "id": "q005",
+      "query": "用户研究方法论",
+      "relevant_topics": ["用户研究", "用户体验"],
+      "ground_truth": "用户研究方法包括问卷调查、深度访谈、可用性测试、A/B测试、用户画像、用户旅程地图等定性和定量方法。"
+    },
+    {
+      "id": "q006",
+      "query": "自然语言处理技术栈",
+      "relevant_topics": ["NLP", "自然语言处理"],
+      "ground_truth": "NLP技术栈包括分词、词性标注、命名实体识别、情感分析、文本分类、机器翻译、问答系统等，主流框架有transformers、spaCy等。"
+    },
+    {
+      "id": "q007",
+      "query": "产品经理常用的工具",
+      "relevant_topics": ["产品工具", "效率工具"],
+      "ground_truth": "产品经理常用工具包括：原型设计(Figma/Sketch)、流程图(ProcessOn)、文档(Confluence/Notion)、项目管理(Jira/Trello)、数据分析(GrowingIO)等。"
+    },
+    {
+      "id": "q008",
+      "query": "深度学习的应用场景",
+      "relevant_topics": ["深度学习", "AI应用"],
+      "ground_truth": "深度学习广泛应用于计算机视觉(图像识别、目标检测)、自然语言处理(机器翻译、对话系统)、语音识别、推荐系统等领域。"
+    },
+    {
+      "id": "q009",
+      "query": "如何进行竞品分析",
+      "relevant_topics": ["竞品分析", "市场分析"],
+      "ground_truth": "竞品分析包括确定竞品范围、收集信息(功能/定价/用户反馈)、对比分析(SWOT/矩阵)、输出报告等步骤。"
+    },
+    {
+      "id": "q010",
+      "query": "AIGC产品有哪些",
+      "relevant_topics": ["AIGC", "生成式AI"],
+      "ground_truth": "AIGC产品包括文本生成(ChatGPT/Claude)、图像生成(Midjourney/DALL-E)、视频生成(Sora)、音乐生成(Suno)、代码生成(GitHub Copilot)等。"
+    }
+  ]
+}

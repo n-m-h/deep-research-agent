@@ -42,3 +42,7 @@ Thumbs.db
 
 # Workspace
 backend/workspace/
+
+# RAG storage (ChromaDB data - local only)
+rag_storage/
+

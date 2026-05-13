@@ -35,7 +35,7 @@ class LLMConfig(BaseModel):
     timeout: int = 120
 
 
-class Configuration(BaseModel):
+class Configuration(BaseModel):   # 主配置类
     llm_provider: str = os.getenv("LLM_PROVIDER", "custom")
     llm_api_key: Optional[str] = os.getenv("LLM_API_KEY")
     llm_model_id: str = os.getenv("LLM_MODEL_ID", "gpt-3.5-turbo")
@@ -55,6 +55,20 @@ class Configuration(BaseModel):
 
     host: str = os.getenv("HOST", "0.0.0.0")
     port: int = int(os.getenv("PORT", "8000"))
+
+    # ==================== RAG 配置 ====================
+    rag_enabled: bool = os.getenv("RAG_ENABLED", "true").lower() == "true"
+    rag_chunk_strategy: str = os.getenv("RAG_CHUNK_STRATEGY", "parent_child")
+    rag_chunk_size: int = int(os.getenv("RAG_CHUNK_SIZE", "500"))
+    rag_chunk_overlap: int = int(os.getenv("RAG_CHUNK_OVERLAP", "75"))
+    rag_parent_chunk_size: int = int(os.getenv("RAG_PARENT_CHUNK_SIZE", "1500"))
+    rag_top_k: int = int(os.getenv("RAG_TOP_K", "5"))
+    rag_candidate_k: int = int(os.getenv("RAG_CANDIDATE_K", "20"))
+    rag_use_rerank: bool = os.getenv("RAG_USE_RERANK", "true").lower() == "true"
+    rag_embedding_model: str = os.getenv("RAG_EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
+    rag_rerank_model: str = os.getenv("RAG_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+    rag_hybrid_weight_dense: float = float(os.getenv("RAG_HYBRID_WEIGHT_DENSE", "0.6"))
+    rag_hybrid_weight_sparse: float = float(os.getenv("RAG_HYBRID_WEIGHT_SPARSE", "0.4"))
 
     class Config:
         extra = "allow"
@@ -89,4 +103,4 @@ class Configuration(BaseModel):
         self.llm_providers = backup_llms
 
 
-config = Configuration()
+config = Configuration()   # 全局配置实例

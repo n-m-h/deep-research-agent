@@ -35,6 +35,73 @@
           </div>
         </div>
       </div>
+
+      <div class="rag-card">
+        <div class="rag-header" @click="showRagPanel = !showRagPanel">
+          <span>📄 个人知识库</span>
+          <span class="rag-toggle">{{ showRagPanel ? '▲' : '▼' }}</span>
+        </div>
+
+        <div v-if="showRagPanel" class="rag-body">
+          <div class="rag-controls">
+            <label class="rag-switch">
+              <input type="checkbox" v-model="useRag" />
+              <span class="switch-slider"></span>
+              <span class="switch-label">研究中同时查询个人文档</span>
+            </label>
+          </div>
+
+          <div
+            class="upload-zone"
+            @dragover.prevent
+            @drop.prevent="handleDrop"
+            @click="triggerUpload"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.txt,.md,.docx"
+              multiple
+              style="display: none"
+              @change="handleFileSelect"
+            />
+            <div class="upload-icon">📤</div>
+            <div class="upload-text">
+              {{ isUploading ? '上传中...' : '拖拽或点击上传文档' }}
+            </div>
+            <div class="upload-hint">支持 PDF / TXT / MD / DOCX</div>
+          </div>
+
+          <div v-if="uploadError" class="upload-error">{{ uploadError }}</div>
+
+          <div v-if="documents.length > 0" class="doc-list">
+            <div v-for="doc in documents" :key="doc.doc_id" class="doc-item">
+              <div class="doc-info">
+                <span class="doc-icon">📄</span>
+                <div class="doc-meta">
+                  <div class="doc-name">{{ doc.filename }}</div>
+                  <div class="doc-chunks">{{ doc.chunk_count }} 个片段</div>
+                </div>
+              </div>
+              <button class="doc-delete" @click="deleteDocument(doc.doc_id)">🗑️</button>
+            </div>
+          </div>
+
+          <div v-else class="doc-empty">
+            <p>还没有上传文档</p>
+            <p class="doc-empty-hint">上传后，研究时自动检索您个人文档中的相关内容</p>
+          </div>
+
+          <div class="rag-status">
+            <span v-if="documents.length > 0" class="status-badge active">
+              ✅ {{ documents.length }} 篇文档已索引
+            </span>
+            <span v-else class="status-badge inactive">
+              ⚡ 等待上传
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
     
     <ResearchModal 
@@ -50,11 +117,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import ResearchModal from './components/ResearchModal.vue'
 import { useResearch } from './composables/useResearch'
 
 const topic = ref('')
+const showRagPanel = ref(true)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const { 
   isOpen,
@@ -63,13 +132,46 @@ const {
   progressPercentage,
   progressText,
   markdownContent,
+  useRag,
+  documents,
+  isUploading,
+  uploadError,
   startResearch,
+  fetchDocuments,
+  uploadDocument,
+  deleteDocument,
   close: closeModal
 } = useResearch()
+
+onMounted(() => {
+  fetchDocuments()
+})
 
 const handleResearch = () => {
   if (!topic.value.trim() || isLoading.value) return
   startResearch(topic.value)
+}
+
+const triggerUpload = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files) {
+    for (const file of target.files) {
+      await uploadDocument(file)
+    }
+    target.value = ''
+  }
+}
+
+const handleDrop = async (event: DragEvent) => {
+  if (event.dataTransfer?.files) {
+    for (const file of event.dataTransfer.files) {
+      await uploadDocument(file)
+    }
+  }
 }
 </script>
 
@@ -187,6 +289,223 @@ body {
 
 .icon {
   font-size: 18px;
+}
+
+.rag-card {
+  background: white;
+  border-radius: 16px;
+  margin-top: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.rag-header {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  color: #374151;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.rag-header:hover {
+  background: #f9fafb;
+}
+
+.rag-toggle {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.rag-body {
+  padding: 0 24px 20px;
+}
+
+.rag-controls {
+  margin-bottom: 16px;
+}
+
+.rag-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.rag-switch input {
+  display: none;
+}
+
+.switch-slider {
+  width: 40px;
+  height: 22px;
+  background: #d1d5db;
+  border-radius: 11px;
+  position: relative;
+  transition: background 0.3s;
+}
+
+.switch-slider::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s;
+}
+
+.rag-switch input:checked + .switch-slider {
+  background: #667eea;
+}
+
+.rag-switch input:checked + .switch-slider::after {
+  transform: translateX(18px);
+}
+
+.switch-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.upload-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 12px;
+}
+
+.upload-zone:hover {
+  border-color: #667eea;
+  background: #f5f3ff;
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.upload-error {
+  color: #ef4444;
+  font-size: 13px;
+  padding: 8px;
+  background: #fef2f2;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.doc-list {
+  margin-top: 16px;
+}
+
+.doc-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+.doc-item:hover {
+  background: #f3f4f6;
+}
+
+.doc-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.doc-icon {
+  font-size: 20px;
+}
+
+.doc-meta {
+  line-height: 1.4;
+}
+
+.doc-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.doc-chunks {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.doc-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.doc-delete:hover {
+  background: #fee2e2;
+}
+
+.doc-empty {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+}
+
+.doc-empty p {
+  margin: 4px 0;
+}
+
+.doc-empty-hint {
+  font-size: 12px;
+}
+
+.rag-status {
+  margin-top: 12px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.status-badge.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 @media (max-width: 640px) {

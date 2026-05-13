@@ -135,27 +135,24 @@ class SearchService:
         return all_results
 
     def _search_with_tavily(self, query: str, max_results: int) -> List[dict]:
-        """使用 Tavily 搜索 - 带超时控制"""
+        """使用 Tavily 搜索 - 带超时控制（线程安全）"""
         if not self.tavily_client:
             return []
             
         try:
-            import signal
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError
             
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Tavily 搜索超时")
+            def _do_search():
+                return self.tavily_client.search(
+                    query=query,
+                    search_depth="basic",
+                    include_answer=True,
+                    max_results=max_results
+                )
             
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(8)
-            
-            response = self.tavily_client.search(
-                query=query,
-                search_depth="basic",
-                include_answer=True,
-                max_results=max_results
-            )
-            
-            signal.alarm(0)
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_do_search)
+                response = future.result(timeout=10)
             
             results = []
             
@@ -188,19 +185,11 @@ class SearchService:
             return []
 
     def _search_with_duckduckgo(self, query: str, max_results: int) -> List[dict]:
-        """使用 DuckDuckGo 搜索 - 带超时控制"""
+        """使用 DuckDuckGo 搜索 - 带超时控制（线程安全）"""
         if not self.ddg_available:
             return []
             
-        import signal
-        
-        def timeout_handler(signum, frame):
-            raise TimeoutError("DuckDuckGo 搜索超时")
-        
-        try:
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(5)
-            
+        def _do_search():
             results = []
             for r in self.ddg_client.text(query, max_results=max_results):
                 results.append({
@@ -209,8 +198,14 @@ class SearchService:
                     "snippet": r.get('body', ''),
                     "source": "duckduckgo"
                 })
+            return results
+        
+        try:
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError
             
-            signal.alarm(0)
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_do_search)
+                results = future.result(timeout=8)
                 
             if results:
                 logger.info(f"DuckDuckGo 搜索成功：{query}，返回{len(results)}个结果")

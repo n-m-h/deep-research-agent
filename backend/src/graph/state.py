@@ -5,7 +5,7 @@ from typing import TypedDict, List, Optional, Annotated
 import operator
 
 
-class SubTask(TypedDict):
+class SubTask(TypedDict):  # 子任务结构
     id: int
     title: str
     intent: str
@@ -44,7 +44,7 @@ def _merge_subtasks(existing: List[SubTask], new: List[SubTask]) -> List[SubTask
     return merged
 
 
-class ResearchState(TypedDict):
+class ResearchState(TypedDict):    # 全局状态结构
     query: str
     sub_tasks: Annotated[List[SubTask], _merge_subtasks]
     current_task_index: int
@@ -54,3 +54,4 @@ class ResearchState(TypedDict):
     iterations: int
     status: str
     error: Optional[str]
+    use_rag: bool  # 是否启用 RAG 检索

@@ -29,7 +29,7 @@ class LangGraphAgent:
         self.chat_model = create_chat_model(config)
         self.graph = build_research_graph(self.chat_model)
 
-    async def research(self, topic: str) -> AsyncGenerator[str, None]:
+    async def research(self, topic: str, use_rag: bool = True) -> AsyncGenerator[str, None]:  # 异步研究，生成SSE格式的事件
         """Execute deep research, yielding SSE-formatted events"""
         initial_state = {
             "query": topic,
@@ -41,10 +41,11 @@ class LangGraphAgent:
             "iterations": 0,
             "status": "starting",
             "error": None,
+            "use_rag": use_rag,
         }
 
         try:
-            async for event in self.graph.astream_events(
+            async for event in self.graph.astream_events(  # 异步生成事件，每个事件包含当前状态和相关数据
                 initial_state,
                 version="v2",
                 config={"recursion_limit": 25},
@@ -112,8 +113,8 @@ class LangGraphAgent:
         except Exception as e:
             logger.error(f"Research error: {e}", exc_info=True)
             yield self._format_sse("error", f"研究出错: {str(e)}")
-
-    def run(self, topic: str) -> str:
+    # 同步研究（非流式）
+    def run(self, topic: str, use_rag: bool = True) -> str:         
         """Synchronous research (non-streaming)"""
         initial_state = {
             "query": topic,
@@ -125,6 +126,7 @@ class LangGraphAgent:
             "iterations": 0,
             "status": "starting",
             "error": None,
+            "use_rag": use_rag,
         }
 
         result = self.graph.invoke(
@@ -134,7 +136,7 @@ class LangGraphAgent:
         return result.get("final_report", "")
 
     def _format_sse(self, event_type: str, message: str = None, data: dict = None, **kwargs) -> str:
-        """Format SSE event"""
+        """ 格式化SSE事件"""
         event_data = {"type": event_type, **(kwargs if kwargs else {})}
         if message:
             event_data["message"] = message
@@ -142,6 +144,5 @@ class LangGraphAgent:
             event_data["data"] = data
         return f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
 
-
-# Backward compatibility alias
+# 别名
 DeepResearchAgent = LangGraphAgent

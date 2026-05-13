@@ -50,6 +50,7 @@ class ResearchEvent(BaseModel):
 class ResearchRequest(BaseModel):
     topic: str
     search_api: Optional[str] = "tavily"
+    use_rag: Optional[bool] = True
 
 
 class ResearchResponse(BaseModel):

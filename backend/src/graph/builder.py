@@ -23,6 +23,7 @@ from .nodes import (
 logger = logging.getLogger(__name__)
 
 
+# 定义路由函数，根据当前状态决定下一步操作
 def _fan_out_router(state: ResearchState) -> List[Send]:
     """Router: Fan out parallel search tasks using Send API"""
     return [
@@ -35,7 +36,7 @@ def _route_after_fan_out(state: ResearchState) -> str:
     """After all parallel searches complete, go to summarize"""
     return "summarize"
 
-
+#  构建完整的研究工作流图
 def build_research_graph(llm):
     """Build the complete research workflow graph"""
 
@@ -48,7 +49,7 @@ def build_research_graph(llm):
     reflect_node = partial(reflect_report, llm=llm)
     revise_node = partial(revise_report, llm=llm)
 
-    # Add nodes
+    # 添加节点
     builder.add_node("decompose", decompose_node)
     builder.add_node("fan_out", lambda state: state)
     builder.add_node("search_sub_task", search_sub_task)
@@ -58,7 +59,7 @@ def build_research_graph(llm):
     builder.add_node("revise", revise_node)
     builder.add_node("finalize", finalize_report)
 
-    # Define edges
+    # 设置入口点和边
     builder.set_entry_point("decompose")
     builder.add_edge("decompose", "fan_out")
 
