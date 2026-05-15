@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>深度研究助手</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -310,6 +311,13 @@
     }
     .markdown-content li { margin: 6px 0; }
     .markdown-content strong { color: #a855f7; font-weight: 500; }
+    .markdown-content a { color: #00d9ff; text-decoration: underline; }
+    .markdown-content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    .markdown-content th, .markdown-content td { border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px; text-align: left; font-size: 13px; }
+    .markdown-content th { background: rgba(0,217,255,0.08); color: white; font-weight: 500; }
+    .markdown-content blockquote { border-left: 3px solid #a855f7; margin: 12px 0; padding: 4px 16px; color: rgba(255,255,255,0.5); }
+    .markdown-content pre { background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: 8px; overflow-x: auto; margin: 10px 0; }
+    .markdown-content pre code { background: none; padding: 0; color: #00d9ff; }
     .markdown-content hr {
       border: none;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -576,7 +584,7 @@
 
   <script>
     let eventSource = null;
-    const API_URL = 'http://localhost:8000';
+    const API_URL = '';
     let startTime = null;
     let ragPanelOpen = true;
 
@@ -812,23 +820,12 @@
 
     function parseMarkdown(text) {
       if (!text) return '';
-      
-      let html = text
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-        .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/^(.+)$/gm, (match) => {
-          if (match.startsWith('<')) return match;
-          return match ? `<p>${match}</p>` : '';
-        });
-      
-      return html;
+      try {
+        return marked.parse(text);
+      } catch (e) {
+        // Fallback: return text as plain text in <pre>
+        return '<pre>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
+      }
     }
 
     function closeModal() {

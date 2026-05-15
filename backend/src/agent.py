@@ -1,14 +1,10 @@
 """
 DeepResearchAgent - 深度研究智能体核心协调器
 """
-import sys
-import os
 from typing import AsyncGenerator, Callable, Optional, List
 from datetime import datetime
 import json
 import logging
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "HelloAgents")))
 
 from hello_agents import HelloAgentsLLM
 from hello_agents.core.llm import MultiProviderLLM

@@ -12,10 +12,8 @@ from pathlib import Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.abspath(os.path.join(current_dir, ".."))
 project_root = os.path.abspath(os.path.join(backend_dir, "..", ".."))
-helloagents_root = project_root
 
 sys.path.insert(0, backend_dir)
-sys.path.insert(0, os.path.join(helloagents_root, "HelloAgents"))
 
 from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +30,7 @@ from src.services.rag import RAGService
 # 版本切换: 通过环境变量 USE_LANGGRAPH 控制
 # USE_LANGGRAPH=true  -> 使用 LangGraph 版本 (并行搜索 + 质量审查)
 # USE_LANGGRAPH=false -> 使用原版 (串行执行)
-USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "false").lower() == "true"
+USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "true").lower() == "true"
 
 if USE_LANGGRAPH:
     from src.agent_langgraph import LangGraphAgent as ResearchAgent

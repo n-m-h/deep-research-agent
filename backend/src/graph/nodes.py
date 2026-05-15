@@ -1,9 +1,8 @@
 """
 LangGraph nodes for the research workflow
 """
-import json
-import re
 import logging
+from functools import lru_cache
 from typing import List, Dict, Any
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -11,6 +10,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from .state import ResearchState, SubTask
 from ..services.search import SearchService
 from ..services.rag import RAGService
+from ..utils import extract_tasks
 from ..prompts import (
     todo_planner_instructions,
     task_summarizer_instructions,
@@ -19,8 +19,17 @@ from ..prompts import (
 
 logger = logging.getLogger(__name__)
 
-search_service = SearchService()
-rag_service = RAGService()
+
+@lru_cache(maxsize=1)
+def _get_search_service() -> SearchService:
+    """Lazy singleton for SearchService — initialized on first use, not at import time."""
+    return SearchService()
+
+
+@lru_cache(maxsize=1)
+def _get_rag_service() -> RAGService:
+    """Lazy singleton for RAGService — initialized on first use, not at import time."""
+    return RAGService()
 
 # 分解研究主题
 def decompose_topic(state: ResearchState, llm) -> dict:
@@ -39,7 +48,7 @@ def decompose_topic(state: ResearchState, llm) -> dict:
     ]
 
     response = llm.invoke(messages).content
-    tasks = _extract_tasks(response)
+    tasks = extract_tasks(response)
 
     sub_tasks: List[SubTask] = []
     for idx, item in enumerate(tasks, start=1):
@@ -69,14 +78,14 @@ def search_sub_task(state: ResearchState) -> dict:
     logger.info(f"Searching for task {idx + 1}/{len(sub_tasks)}: {task['title']}")
 
     # 1. Web search
-    web_results = search_service.search(task["query"])
+    web_results = _get_search_service().search(task["query"])
     web_results = web_results or []
 
     # 2. RAG retrieval (if enabled and documents exist)
     rag_results = []
-    if state.get("use_rag", True) and rag_service.has_documents:
+    if state.get("use_rag", True) and _get_rag_service().has_documents:
         try:
-            rag_chunks = rag_service.search(task["query"], top_k=3)
+            rag_chunks = _get_rag_service().search(task["query"], top_k=3)
             rag_results = [
                 {
                     "title": f"[个人文档] {chunk['source_doc']}",
@@ -254,28 +263,7 @@ def fan_out_search(state: ResearchState) -> list:
 
 # ── Helper functions ──────────────────────────────────────────────────
 
-def _extract_tasks(response: str) -> List[dict]:
-    """Extract JSON from LLM response"""
-    response = response.strip()
-    response = re.sub(r'^```json\s*', '', response)
-    response = re.sub(r'^```\s*', '', response)
-    response = re.sub(r'\s*```$', '', response)
-    response = response.replace('\u201c', '"').replace('\u201d', '"')
-    response = response.replace('\u2018', "'").replace('\u2019', "'")
-
-    json_match = re.search(r'\[[\s\S]*\]', response)
-    if json_match:
-        try:
-            return json.loads(json_match.group(0))
-        except json.JSONDecodeError:
-            pass
-
-    try:
-        return json.loads(response)
-    except json.JSONDecodeError:
-        pass
-
-    raise ValueError(f"无法从响应中提取JSON: {response[:300]}")
+# extract_tasks lives in src/utils.py -- imported at top of file
 
 # 格式化搜索结果以供总结使用
 def _format_sources(search_results: List[dict]) -> str:

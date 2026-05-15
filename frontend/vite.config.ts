@@ -7,10 +7,23 @@ export default defineConfig({
     port: 5174,
     host: true,
     proxy: {
-      '/api': {
+      // Backend API routes
+      '/research': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-      }
+      },
+      '/documents': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/rag': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     }
   }
 })

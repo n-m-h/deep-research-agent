@@ -1,14 +1,13 @@
 """
 任务规划服务
 """
-import re
-import json
 from typing import List, Callable, Optional
 from datetime import datetime
 
 from ..models import TodoItem, SummaryState
 from ..prompts import todo_planner_instructions
 from ..tool_aware_agent import ToolAwareSimpleAgent
+from ..utils import extract_tasks
 
 
 class PlanningService:
@@ -77,36 +76,5 @@ class PlanningService:
         return datetime.now().strftime("%Y年%m月%d日")
 
     def _extract_tasks(self, response: str) -> List[dict]:
-        """从Agent响应中提取JSON"""
-        response = response.strip()
-        
-        response = re.sub(r'^```json\s*', '', response)
-        response = re.sub(r'^```\s*', '', response)
-        response = re.sub(r'\s*```$', '', response)
-        
-        response = response.replace('"', '"').replace('"', '"')
-        response = response.replace(''', "'").replace(''', "'")
-        
-        json_match = re.search(r'\[[\s\S]*\]', response)
-        if json_match:
-            json_str = json_match.group(0)
-            try:
-                return json.loads(json_str)
-            except json.JSONDecodeError as e:
-                pass
-
-        try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            pass
-        
-        json_match = re.search(r'\{[\s\S]*\}', response)
-        if json_match:
-            try:
-                data = json.loads(json_match.group(0))
-                if isinstance(data, dict) and "tasks" in data:
-                    return data["tasks"]
-            except json.JSONDecodeError:
-                pass
-
-        raise ValueError(f"无法从响应中提取JSON: {response[:300]}")
+        """从Agent响应中提取JSON — 委托给共享的 extract_tasks"""
+        return extract_tasks(response)

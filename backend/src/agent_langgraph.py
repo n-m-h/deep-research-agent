@@ -1,13 +1,9 @@
 """
 LangGraphAgent - LangGraph-based deep research agent
 """
-import sys
-import os
 import json
 import logging
 from typing import AsyncGenerator
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "HelloAgents")))
 
 from .config import config
 from .langgraph_llm import create_chat_model

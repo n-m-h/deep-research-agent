@@ -2,11 +2,8 @@
 LangGraph-compatible LLM wrapper for HelloAgents MultiProviderLLM
 Wraps HelloAgentsLLM as a LangChain BaseChatModel
 """
-import sys
-import os
+import logging
 from typing import List, Optional, Any, Iterator
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "HelloAgents")))
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
@@ -14,6 +11,9 @@ from langchain_core.outputs import ChatResult, ChatGeneration
 
 from hello_agents import HelloAgentsLLM
 from hello_agents.core.llm import MultiProviderLLM
+from hello_agents.core.exceptions import LLMError
+
+logger = logging.getLogger(__name__)
 
 
 def _to_openai_messages(messages: List[BaseMessage]) -> List[dict]:
